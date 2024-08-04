@@ -26,25 +26,27 @@ public class Main extends JFrame {
     private String correctWord;
     private int currentRow;
     private boolean rowFilled;
+    private int currentColumn;
 
     public Main() {
         setTitle("Wordle Game");
         setSize(400, 500);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null); // Center the window
+        setLocationRelativeTo(null);
 
-        loadWords();  // Load words from file
+        loadWords();
         if (words.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No valid words loaded. Check words.txt file.", "Error", JOptionPane.ERROR_MESSAGE);
-            System.exit(1); // Exit if no words are loaded
+            System.exit(1);
         }
 
-        correctWord = getRandomWord();  // Set a random correct word for the game
-        currentRow = 0;  // Initialize row counter
-        rowFilled = false;  // Track if the row is filled
+        correctWord = getRandomWord();
+        currentRow = 0;
+        currentColumn = 0;
+        rowFilled = false;
 
-        setUpUI();  // Set up the user interface
-        setVisible(true);  // Show the window
+        setUpUI();
+        setVisible(true);
     }
 
     private void loadWords() {
@@ -69,12 +71,11 @@ public class Main extends JFrame {
 
     private void setUpUI() {
         boardPanel = new JPanel();
-        boardPanel.setLayout(new GridLayout(6, 5, 5, 5));  // Create a 6x5 grid for guesses
+        boardPanel.setLayout(new GridLayout(6, 5, 5, 5));
         add(boardPanel, "Center");
 
-        textFields = new ArrayList<>();  // Initialize the list of text fields
+        textFields = new ArrayList<>();
 
-        // Add text fields for the Wordle grid
         for (int i = 0; i < 6 * 5; i++) {
             JTextField textField = new JTextField();
             textField.setHorizontalAlignment(JTextField.CENTER);
@@ -86,18 +87,18 @@ public class Main extends JFrame {
                     JTextField source = (JTextField) e.getSource();
 
                     if (rowFilled && (textFields.indexOf(source) / 5 == currentRow)) {
-                        e.consume();  // Ignore input if the row is already filled
+                        e.consume();
                         return;
                     }
 
                     if (source.getText().length() >= 1) {
-                        e.consume();  // Consume the event if more than one character is typed
+                        e.consume();
                         return;
                     }
 
-                    // Move focus to the next text field
                     int index = textFields.indexOf(source);
                     if (index < 4 + (currentRow * 5)) {
+                        currentColumn++;
                         JTextField nextField = textFields.get(index + 1);
                         nextField.requestFocus();
                     }
@@ -110,25 +111,24 @@ public class Main extends JFrame {
 
                     if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                         if (rowFilled) {
-                            handleGuess();  // Submit the guess if Enter is pressed
+                            handleGuess();
                         } else {
-                            rowFilled = true;  // Mark the row as filled
-                            // Disable editing for the current row
+                            rowFilled = true;
                             for (int i = currentRow * 5; i < (currentRow + 1) * 5; i++) {
                                 textFields.get(i).setEditable(false);
                             }
                         }
                     } else if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
                         if (source.getText().length() > 0) {
-                            // Clear the current letter
                             source.setText("");
+                            currentColumn--;
                         } else if (index > currentRow * 5) {
-                            // Move focus to the previous text field if current field is empty
                             JTextField prevField = textFields.get(index - 1);
-                            prevField.setText(""); // Clear the previous letter
+                            prevField.setText("");
                             prevField.requestFocus();
+                            currentColumn--;
                         }
-                        e.consume();  // Consume the event to prevent the default backspace behavior
+                        e.consume();
                     }
                 }
             });
@@ -138,7 +138,7 @@ public class Main extends JFrame {
     }
 
     private void handleGuess() {
-        if (currentRow >= 6) return;  // Do nothing if the game is over
+        if (currentRow >= 6) return;
 
         StringBuilder guess = new StringBuilder();
         for (int i = currentRow * 5; i < (currentRow + 1) * 5; i++) {
@@ -146,7 +146,7 @@ public class Main extends JFrame {
             String text = textField.getText().trim().toLowerCase();
             if (text.length() != 1) {
                 JOptionPane.showMessageDialog(this, "Each cell must contain exactly one letter.", "Error", JOptionPane.ERROR_MESSAGE);
-                rowFilled = false;  // Reset rowFilled to allow further input
+                rowFilled = false;
                 return;
             }
             guess.append(text);
@@ -154,12 +154,11 @@ public class Main extends JFrame {
 
         String guessStr = guess.toString();
 
-        // Validate the guess
         if (guessStr.length() != 5 || !words.contains(guessStr)) {
             JOptionPane.showMessageDialog(this, "Invalid word.", "Error", JOptionPane.ERROR_MESSAGE);
-            rowFilled = false;  // Reset rowFilled to allow further input
+            rowFilled = false;
             for (int i = currentRow * 5; i < (currentRow + 1) * 5; i++) {
-                textFields.get(i).setEditable(true);  // Re-enable editing for the current row
+                textFields.get(i).setEditable(true);
             }
             return;
         }
@@ -171,14 +170,14 @@ public class Main extends JFrame {
         }
 
         updateBoard(guessStr);
-        currentRow++;  // Move to the next row
+        currentRow++;
+        currentColumn = 0;
 
         if (currentRow >= 6) {
             JOptionPane.showMessageDialog(this, "Game over! The correct word was: " + correctWord, "Game Over", JOptionPane.INFORMATION_MESSAGE);
             resetGame();
         }
 
-        // Reset the rowFilled flag for the new row
         rowFilled = false;
     }
 
@@ -189,25 +188,26 @@ public class Main extends JFrame {
             textField.setText(String.valueOf(ch));
 
             if (ch == correctWord.charAt(i)) {
-                textField.setBackground(Color.GREEN);  // Correct letter in correct position
+                textField.setBackground(Color.GREEN);
             } else if (correctWord.indexOf(ch) != -1) {
-                textField.setBackground(Color.YELLOW);  // Correct letter in wrong position
+                textField.setBackground(Color.YELLOW);
             } else {
-                textField.setBackground(Color.GRAY);  // Incorrect letter
+                textField.setBackground(Color.GRAY);
             }
         }
     }
 
     private void resetGame() {
         currentRow = 0;
+        currentColumn = 0;
         rowFilled = false;
-        for (int i = 0; 6 * 5 > i; i++) {
+        for (int i = 0; i < 6 * 5; i++) {
             JTextField textField = textFields.get(i);
             textField.setText("");
-            textField.setBackground(Color.WHITE);  // Reset background color
-            textField.setEditable(true);  // Reset editability
+            textField.setBackground(Color.WHITE);
+            textField.setEditable(true);
         }
-        correctWord = getRandomWord();  // Select a new word for the next game
+        correctWord = getRandomWord();
     }
 
     public static void main(String[] args) {
