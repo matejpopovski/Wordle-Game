@@ -10,6 +10,8 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -19,11 +21,11 @@ import java.util.List;
 public class Main extends JFrame {
 
     private JPanel boardPanel;
-    private JTextField guessInput;
-    private JButton submitButton;
+    private List<JTextField> textFields;
     private List<String> words;
     private String correctWord;
     private int currentRow;
+    private boolean rowFilled;
 
     public Main() {
         setTitle("Wordle Game");
@@ -39,6 +41,7 @@ public class Main extends JFrame {
 
         correctWord = getRandomWord();  // Set a random correct word for the game
         currentRow = 0;  // Initialize row counter
+        rowFilled = false;  // Track if the row is filled
 
         setUpUI();  // Set up the user interface
         setVisible(true);  // Show the window
@@ -69,64 +72,122 @@ public class Main extends JFrame {
         boardPanel.setLayout(new GridLayout(6, 5, 5, 5));  // Create a 6x5 grid for guesses
         add(boardPanel, "Center");
 
+        textFields = new ArrayList<>();  // Initialize the list of text fields
+
         // Add text fields for the Wordle grid
         for (int i = 0; i < 6 * 5; i++) {
             JTextField textField = new JTextField();
-            textField.setEditable(false);
             textField.setHorizontalAlignment(JTextField.CENTER);
             textField.setFont(new Font("Arial", Font.BOLD, 20));
+            textField.setEditable(true);
+            textField.addKeyListener(new KeyAdapter() {
+                @Override
+                public void keyTyped(KeyEvent e) {
+                    JTextField source = (JTextField) e.getSource();
+
+                    if (rowFilled && (textFields.indexOf(source) / 5 == currentRow)) {
+                        e.consume();  // Ignore input if the row is already filled
+                        return;
+                    }
+
+                    if (source.getText().length() >= 1) {
+                        e.consume();  // Consume the event if more than one character is typed
+                        return;
+                    }
+
+                    // Move focus to the next text field
+                    int index = textFields.indexOf(source);
+                    if (index < 4 + (currentRow * 5)) {
+                        JTextField nextField = textFields.get(index + 1);
+                        nextField.requestFocus();
+                    }
+                }
+
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    JTextField source = (JTextField) e.getSource();
+                    int index = textFields.indexOf(source);
+
+                    if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                        if (rowFilled) {
+                            handleGuess();  // Submit the guess if Enter is pressed
+                        } else {
+                            rowFilled = true;  // Mark the row as filled
+                            // Disable editing for the current row
+                            for (int i = currentRow * 5; i < (currentRow + 1) * 5; i++) {
+                                textFields.get(i).setEditable(false);
+                            }
+                        }
+                    } else if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+                        if (source.getText().length() > 0) {
+                            // Clear the current letter
+                            source.setText("");
+                        } else if (index > currentRow * 5) {
+                            // Move focus to the previous text field if current field is empty
+                            JTextField prevField = textFields.get(index - 1);
+                            prevField.setText(""); // Clear the previous letter
+                            prevField.requestFocus();
+                        }
+                        e.consume();  // Consume the event to prevent the default backspace behavior
+                    }
+                }
+            });
             boardPanel.add(textField);
+            textFields.add(textField);
         }
-
-        JPanel inputPanel = new JPanel(new FlowLayout());
-        guessInput = new JTextField(5);
-        submitButton = new JButton("Submit");
-
-        inputPanel.add(new JLabel("Enter guess:"));
-        inputPanel.add(guessInput);
-        inputPanel.add(submitButton);
-
-        add(inputPanel, "South");
-
-        submitButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                handleGuess();
-            }
-        });
     }
 
     private void handleGuess() {
-        String guess = guessInput.getText().toLowerCase();
+        if (currentRow >= 6) return;  // Do nothing if the game is over
 
-        if (guess.length() != 5) {
+        StringBuilder guess = new StringBuilder();
+        for (int i = currentRow * 5; i < (currentRow + 1) * 5; i++) {
+            JTextField textField = textFields.get(i);
+            String text = textField.getText().trim().toLowerCase();
+            if (text.length() != 1) {
+                JOptionPane.showMessageDialog(this, "Each cell must contain exactly one letter.", "Error", JOptionPane.ERROR_MESSAGE);
+                rowFilled = false;  // Reset rowFilled to allow further input
+                return;
+            }
+            guess.append(text);
+        }
+
+        String guessStr = guess.toString();
+
+        // Validate the guess
+        if (guessStr.length() != 5) {
             JOptionPane.showMessageDialog(this, "Guess must be 5 letters long.", "Error", JOptionPane.ERROR_MESSAGE);
+            rowFilled = false;  // Reset rowFilled to allow further input
             return;
         }
 
-        if (!words.contains(guess)) {
+        if (!words.contains(guessStr)) {
             JOptionPane.showMessageDialog(this, "Invalid word.", "Error", JOptionPane.ERROR_MESSAGE);
+            rowFilled = false;  // Reset rowFilled to allow further input
             return;
         }
 
-        if (guess.equals(correctWord)) {
+        if (guessStr.equals(correctWord)) {
             JOptionPane.showMessageDialog(this, "Congratulations! You've guessed the word!", "Win", JOptionPane.INFORMATION_MESSAGE);
             resetGame();
             return;
         }
 
-        updateBoard(guess);
-        guessInput.setText("");  // Clear the input field
+        updateBoard(guessStr);
+        currentRow++;  // Move to the next row
 
         if (currentRow >= 6) {
             JOptionPane.showMessageDialog(this, "Game over! The correct word was: " + correctWord, "Game Over", JOptionPane.INFORMATION_MESSAGE);
             resetGame();
         }
+
+        // Reset the rowFilled flag for the new row
+        rowFilled = false;
     }
 
     private void updateBoard(String guess) {
         for (int i = 0; i < 5; i++) {
-            JTextField textField = (JTextField) boardPanel.getComponent(currentRow * 5 + i);
+            JTextField textField = textFields.get(currentRow * 5 + i);
             char ch = guess.charAt(i);
             textField.setText(String.valueOf(ch));
 
@@ -138,17 +199,16 @@ public class Main extends JFrame {
                 textField.setBackground(Color.GRAY);  // Incorrect letter
             }
         }
-
-        currentRow++;
     }
 
     private void resetGame() {
         currentRow = 0;
-        guessInput.setText("");
+        rowFilled = false;
         for (int i = 0; i < 6 * 5; i++) {
-            JTextField textField = (JTextField) boardPanel.getComponent(i);
+            JTextField textField = textFields.get(i);
             textField.setText("");
             textField.setBackground(Color.WHITE);  // Reset background color
+            textField.setEditable(true);  // Reset editability
         }
         correctWord = getRandomWord();  // Select a new word for the next game
     }
