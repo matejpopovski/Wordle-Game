@@ -155,15 +155,12 @@ public class Main extends JFrame {
         String guessStr = guess.toString();
 
         // Validate the guess
-        if (guessStr.length() != 5) {
-            JOptionPane.showMessageDialog(this, "Guess must be 5 letters long.", "Error", JOptionPane.ERROR_MESSAGE);
-            rowFilled = false;  // Reset rowFilled to allow further input
-            return;
-        }
-
-        if (!words.contains(guessStr)) {
+        if (guessStr.length() != 5 || !words.contains(guessStr)) {
             JOptionPane.showMessageDialog(this, "Invalid word.", "Error", JOptionPane.ERROR_MESSAGE);
             rowFilled = false;  // Reset rowFilled to allow further input
+            for (int i = currentRow * 5; i < (currentRow + 1) * 5; i++) {
+                textFields.get(i).setEditable(true);  // Re-enable editing for the current row
+            }
             return;
         }
 
@@ -204,7 +201,7 @@ public class Main extends JFrame {
     private void resetGame() {
         currentRow = 0;
         rowFilled = false;
-        for (int i = 0; i < 6 * 5; i++) {
+        for (int i = 0; 6 * 5 > i; i++) {
             JTextField textField = textFields.get(i);
             textField.setText("");
             textField.setBackground(Color.WHITE);  // Reset background color
