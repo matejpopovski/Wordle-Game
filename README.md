@@ -8,4 +8,3 @@ This Wordle game project, implemented in Java using Eclipse, is a graphical word
         <td><img src="images/Screenshot2.png" alt="Screenshot 2" width="350"/></td>
     </tr>
 </table>
-
